@@ -74,6 +74,8 @@ public class JCommander {
    * The objects that contain fields annotated with @Parameter.
    */
   private List<Object> m_objects = Lists.newArrayList();
+  
+  private List<PostParsingValidator> m_objects_valdators=Lists.newArrayList(); 
 
   private boolean m_firstTimeMainParameter = true;
 
@@ -239,19 +241,26 @@ public class JCommander {
    */
   // declared final since this is invoked from constructors
   public final void addObject(Object object) {
+	List<Object> objectsToAdd=Lists.newArrayList();
     if (object instanceof Iterable) {
       // Iterable
       for (Object o : (Iterable<?>) object) {
-        m_objects.add(o);
+    	  objectsToAdd.add(o);
       }
     } else if (object.getClass().isArray()) {
       // Array
       for (Object o : (Object[]) object) {
-        m_objects.add(o);
+    	  objectsToAdd.add(o);
       }
     } else {
       // Single object
-      m_objects.add(object);
+    	objectsToAdd.add(object);
+    }
+    for(Object objectToAdd:objectsToAdd){
+    	if(objectToAdd instanceof PostParsingValidator){
+    		m_objects_valdators.add((PostParsingValidator) objectToAdd);
+    	}
+    	m_objects.add(objectToAdd);
     }
   }
 
@@ -286,7 +295,12 @@ public class JCommander {
     if (m_descriptions == null) createDescriptions();
     initializeDefaultValues();
     parseValues(expandArgs(args), validate);
-    if (validate) validateOptions();
+    if (validate) {
+    	validateOptions();
+    	for (PostParsingValidator validator : m_objects_valdators) {
+			validator.validate();
+		}
+    }
   }
 
   private StringBuilder join(Object[] args) {
@@ -564,6 +578,9 @@ public class JCommander {
         if (delegateObject == null){
           throw new ParameterException("Delegate field '" + parameterized.getName()
               + "' cannot be null.");
+        }
+        if(delegateObject instanceof PostParsingValidator){
+        	m_objects_valdators.add((PostParsingValidator) delegateObject);
         }
         addDescription(delegateObject);
       } else if (wp != null && wp.getDynamicParameter() != null) {
